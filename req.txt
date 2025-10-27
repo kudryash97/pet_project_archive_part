@@ -1,0 +1,5 @@
+#установить в power shell с активированным venv
+pip install apache-airflow==2.10.5
+pip install pymssql
+# с пандасом numpy автоматом установится
+pip install pandas
