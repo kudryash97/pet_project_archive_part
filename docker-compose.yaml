@@ -89,7 +89,7 @@ services:
 
   mssql:
     container_name: sql-server
-    image: mcr.microsoft.com/mssql/server:2017-latest
+    image: mcr.microsoft.com/mssql/server:2022-latest
     restart: always
     environment:
       ACCEPT_EULA: "Y"
@@ -99,13 +99,7 @@ services:
     ports:
       - 1433:1433
     volumes:
-      - ms_sql_data:/var/opt/mssql/data
-      - ms_sql_backup:/backup
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 4G
+      - sqlserverdata:/var/opt/mssql
 
   greenplum:
     image: sergeyosechkin/greenplum
@@ -342,6 +336,5 @@ services:
 volumes:
   greenplum-data:
   greenplum-logs:
-  ms_sql_data:
-  ms_sql_backup:
+  sqlserverdata:
   postgres-db-volume:
