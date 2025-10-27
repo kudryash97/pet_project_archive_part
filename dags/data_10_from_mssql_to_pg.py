@@ -10,7 +10,7 @@ from airflow.operators.python import PythonOperator
 
 #конфиг DAG
 OWNER = "kudryash"
-DAG_ID = "data_16_from_mssql_to_pg"
+DAG_ID = "data_10_from_mssql_to_pg"
 
 
 # Используемые БД в DAG (В ms sql и в pg названия БД одинаковые)
@@ -24,7 +24,7 @@ LONG_DESCRIPTION = """
 # LONG DESCRIPTION
 """
 
-SHORT_DESCRIPTION = "Архивные данные 16 из ms sql грузятся в postgres"
+SHORT_DESCRIPTION = "Архивные данные 10 из ms sql грузятся в postgres"
 
 args = {
     "owner" : OWNER,
@@ -41,7 +41,7 @@ def get_dates(**context) -> tuple[str, str]:
 
     return start_date, end_date
 
-def transfer_data_16_from_ms_to_pg(**context):
+def transfer_data_10_from_ms_to_pg(**context):
     start_date, end_date = get_dates(**context)
     logging.info(f"💻 Start load for dates: {start_date}/{end_date}")
     engine = create_engine(f"mssql+pymssql://sa:{MS_SQL_PASSWORD}@sql-server/{DB_NAME}?charset=utf8")
@@ -95,13 +95,13 @@ with DAG(
         task_id='start',
     )
 
-    transfer_data_16_from_ms_to_pg = PythonOperator(
-        task_id='transfer_data_16_from_ms_to_pg',
-        python_callable=transfer_data_16_from_ms_to_pg,
+    transfer_data_10_from_ms_to_pg = PythonOperator(
+        task_id='transfer_data_10_from_ms_to_pg',
+        python_callable=transfer_data_10_from_ms_to_pg,
     )
 
     end = EmptyOperator(
         task_id='end'
     )
 
-    start >> transfer_data_16_from_ms_to_pg >> end
+    start >> transfer_data_10_from_ms_to_pg >> end
