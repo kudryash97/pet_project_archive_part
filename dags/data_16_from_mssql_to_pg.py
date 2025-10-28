@@ -87,7 +87,7 @@ def column_type_update(**context):
     try:
         with conn.cursor() as cursor:
             cursor.execute(f"""
-                    ALTER TABLE tmp_16_{start_date}_event (
+                    ALTER TABLE tmp_16_{start_date.replace('-', '_')}_event
                         ALTER COLUMN time TYPE int4,
                         ALTER COLUMN "Mcs" TYPE int4,
                         ALTER COLUMN num_sign TYPE int4,
@@ -99,7 +99,7 @@ def column_type_update(**context):
                 """)
 
             cursor.execute(f"""
-                    ALTER TABLE tmp_16_{start_date}_state
+                    ALTER TABLE tmp_16_{start_date.replace('-', '_')}_state
                         ALTER COLUMN time_page TYPE int4,
                         ALTER COLUMN time TYPE int4,
                         ALTER COLUMN "Mcs" TYPE int4,
@@ -112,7 +112,7 @@ def column_type_update(**context):
                 """)
 
             cursor.execute(f"""
-                    ALTER TABLE tmp_16_2025_10_26_time
+                    ALTER TABLE tmp_16_{start_date.replace('-', '_')}_time
                         ALTER COLUMN time_page TYPE int4;
                 """)
 
