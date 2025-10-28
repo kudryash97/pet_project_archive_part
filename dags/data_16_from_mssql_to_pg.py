@@ -7,6 +7,7 @@ import numpy as np
 from sqlalchemy import create_engine
 from airflow.operators.empty import EmptyOperator
 from airflow.operators.python import PythonOperator
+import psycopg2
 
 #конфиг DAG
 OWNER = "kudryash"
@@ -80,6 +81,47 @@ def transfer_data_16_from_ms_to_pg(**context):
     df_tmp_16_event.to_sql(f"tmp_16_{start_date}_event".replace('-', '_'), con=engine_pg, if_exists='replace', index=False)
     logging.info(f"✅ Download for date success: {start_date}")
 
+def column_type_update(**context):
+    start_date, end_date = get_dates(**context)
+    conn = psycopg2.connect(host="postgres_db", database=DB_NAME, user="postgres", password=PG_PASSWORD)
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(f"""
+                    ALTER TABLE tmp_16_{start_date}_event (
+                        ALTER COLUMN time TYPE int4,
+                        ALTER COLUMN "Mcs" TYPE int4,
+                        ALTER COLUMN num_sign TYPE int4,
+                        ALTER COLUMN data TYPE int2,
+                        ALTER COLUMN "Pr" TYPE int2,
+                        ALTER COLUMN bstate TYPE int2,
+                        ALTER COLUMN bsrc TYPE int2,
+                        ALTER COLUMN kks_id_signal TYPE CHAR(25);
+                """)
+
+            cursor.execute(f"""
+                    ALTER TABLE tmp_16_{start_date}_state
+                        ALTER COLUMN time_page TYPE int4,
+                        ALTER COLUMN time TYPE int4,
+                        ALTER COLUMN "Mcs" TYPE int4,
+                        ALTER COLUMN num_sign TYPE int4,
+                        ALTER COLUMN data TYPE int2,
+                        ALTER COLUMN "Pr" TYPE int2,
+                        ALTER COLUMN bstate TYPE int2,
+                        ALTER COLUMN bsrc TYPE int2,
+                        ALTER COLUMN kks_id_signal TYPE CHAR(25);
+                """)
+
+            cursor.execute(f"""
+                    ALTER TABLE tmp_16_2025_10_26_time
+                        ALTER COLUMN time_page TYPE int4;
+                """)
+
+            conn.commit()
+            logging.info(f"У всех 3х таблиц типы данных изменены")
+
+    finally:
+        conn.close()
+
 with DAG(
     dag_id=DAG_ID,
     schedule_interval='0 5 * * *',
@@ -101,8 +143,13 @@ with DAG(
         python_callable=transfer_data_16_from_ms_to_pg,
     )
 
+    column_type_update = PythonOperator(
+        task_id='column_type_update',
+        python_callable=column_type_update,
+    )
+
     end = EmptyOperator(
         task_id='end'
     )
 
-    start >> transfer_data_16_from_ms_to_pg >> end
+    start >> transfer_data_16_from_ms_to_pg >> column_type_update >> end
