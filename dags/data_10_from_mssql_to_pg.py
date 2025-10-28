@@ -74,7 +74,6 @@ def transfer_data_10_from_ms_to_pg(**context):
 
     sub_sys_value = 10
     pattern = "%EN6%"
-    engine_pg = create_engine(f'postgresql+psycopg2://postgres:{PG_PASSWORD}@postgres_db/{DB_NAME}')
 
     sql_query = """
     SELECT kks_id_signal, signal_indx, dimension
@@ -84,32 +83,11 @@ def transfer_data_10_from_ms_to_pg(**context):
       AND sub_sys = %(sub_sys_value)s;
     """
 
-    def generate_signal_data(signal_row, time_unix):
-        signal_indx = signal_row['signal_indx']
-        kks_id_signal = signal_row['kks_id_signal']
-        dimension = signal_row['dimension']
-
-        for timestamp in time_unix:
-            yield {
-                'time': timestamp,
-                'Mcs': 476000,
-                'num_sign': signal_indx,
-                'data': gen_value(dimension),
-                'bzone': 0,
-                'isevnt': 1,
-                'bstate': 1,
-                'bsrc': 0,
-                'kks_id_signal': kks_id_signal
-            }
-
     df_signals = pd.read_sql(sql=sql_query, con=engine, params={"pattern": pattern, "sub_sys_value": sub_sys_value})
     logging.info(f"Найдено {len(df_signals)} сигналов 10 подсистемы")
 
     seconds = pd.date_range(start=f"{start_date} 00:00:00", end=f"{start_date} 23:59:59", freq='s')
     time_unix = (seconds.astype(int) // 10 ** 9).values
-
-    batch_size = 3600
-    first_write = True
 
 
     csv_buffer = io.StringIO()
@@ -165,7 +143,7 @@ def transfer_data_10_from_ms_to_pg(**context):
 
             cursor.execute(f"""
                 CREATE TABLE IF NOT EXISTS {table_name}_time AS 
-                SELECT DISTINCT time 
+                SELECT DISTINCT time AS time_page
                 FROM {table_name}_event
                 WHERE time % 5 = 0;
             """)
@@ -176,6 +154,12 @@ def transfer_data_10_from_ms_to_pg(**context):
                 FROM {table_name}_event
                 WHERE time % 5 = 0;
             """)
+
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS f"tmp_80_{start_date.replace('-', '_')}"_time AS
+                SELECT time_page
+                FROM {table_name}_time;
+""")
 
             conn.commit()
             logging.info(f"Все 3 таблицы 10 подсистемы созданы")
