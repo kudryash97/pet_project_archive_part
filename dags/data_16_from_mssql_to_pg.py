@@ -58,6 +58,7 @@ def transfer_data_16_from_ms_to_pg(**context):
       AND sub_sys = %(sub_sys_value)s;
     """
     df = pd.read_sql(sql=sql_query, con=engine, params={"pattern": pattern, "sub_sys_value": sub_sys_value})
+    logging.info(f"Найдено {len(df)} сигналов 16 подсистемы")
     hours = pd.date_range(start=f"{start_date} 00:00:00", end=f"{start_date} 23:00:00", freq="h")
     random_seconds = np.random.randint(0, 3600, 24)
     df_time = pd.DataFrame({

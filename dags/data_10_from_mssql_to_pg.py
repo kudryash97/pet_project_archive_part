@@ -3,10 +3,14 @@ from airflow import DAG
 import pendulum
 from airflow.models import Variable
 import pandas as pd
-import numpy as np
+import random
 from sqlalchemy import create_engine
 from airflow.operators.empty import EmptyOperator
 from airflow.operators.python import PythonOperator
+from datetime import timedelta
+import psycopg2
+import csv
+import io
 
 #конфиг DAG
 OWNER = "kudryash"
@@ -34,6 +38,26 @@ args = {
     "retry_delay" : pendulum.duration(hours=1)
 }
 
+def gen_float(min_val, max_val, decimal_places=4):
+    number = random.uniform(min_val, max_val)
+    return round(number, decimal_places)
+
+def gen_value(val : str) -> float:
+    value_ranges = {
+        'А': (335, 346),
+        'кВ': (-280, 280),
+        'Гц': (49.8, 50.2),
+        'МВт': (170, 220),
+        'МВА': (450, 580),
+        'МВАр': (-180, 150)
+    }
+    if val in value_ranges:
+        min_val, max_val = value_ranges[val]
+        return gen_float(min_val, max_val)
+    else:
+        return gen_float(10, 20)
+
+
 def get_dates(**context) -> tuple[str, str]:
     """"""
     start_date = context["data_interval_start"].format("YYYY-MM-DD")
@@ -41,43 +65,127 @@ def get_dates(**context) -> tuple[str, str]:
 
     return start_date, end_date
 
+
+
 def transfer_data_10_from_ms_to_pg(**context):
     start_date, end_date = get_dates(**context)
-    logging.info(f"💻 Start load for dates: {start_date}/{end_date}")
+    logging.info(f"Start load for dates: {start_date}/{end_date}")
     engine = create_engine(f"mssql+pymssql://sa:{MS_SQL_PASSWORD}@sql-server/{DB_NAME}?charset=utf8")
 
-    sub_sys_value = 16
+    sub_sys_value = 10
     pattern = "%EN6%"
     engine_pg = create_engine(f'postgresql+psycopg2://postgres:{PG_PASSWORD}@postgres_db/{DB_NAME}')
 
     sql_query = """
-    SELECT *
+    SELECT kks_id_signal, signal_indx, dimension
     FROM dbo.Link_signals
     WHERE kks_id_signal LIKE %(pattern)s 
       AND kks_id_param IS NOT NULL  
       AND sub_sys = %(sub_sys_value)s;
     """
-    df = pd.read_sql(sql=sql_query, con=engine, params={"pattern": pattern, "sub_sys_value": sub_sys_value})
-    hours = pd.date_range(start=f"{start_date} 00:00:00", end=f"{start_date} 23:00:00", freq="h")
-    random_seconds = np.random.randint(0, 3600, 24)
-    df_time = pd.DataFrame({
-        "time_page": hours,
-        "time": hours + pd.to_timedelta(random_seconds, unit="s"),
-        "Mcs": 476000, "data": 2, "Pr": 2, "bstate": 1, "bsrc": 0}
-    )
-    df_sql = df[["signal_indx", "kks_id_signal"]].rename(columns={"signal_indx": "num_sign"})
-    df_time["time_page"] = df_time["time_page"].astype(int) // 10 ** 9
-    df_time["time"] = df_time["time"].astype(int) // 10 ** 9
-    result = df_time.merge(df_sql, how="cross")
-    cols_order = ["time_page", "time", "Mcs", "num_sign", "data", "Pr", "bstate", "bsrc", "kks_id_signal"]
 
-    df_tmp_16_state = result[cols_order]
-    df_tmp_16_time = df_time["time_page"]
-    df_tmp_16_event = df_tmp_16_state[["time", "Mcs", "num_sign", "data", "Pr", "bstate", "bsrc", "kks_id_signal"]]
-    df_tmp_16_state.to_sql(f"tmp_16_{start_date}_state".replace('-', '_'), con=engine_pg, if_exists='replace', index=False)
-    df_tmp_16_time.to_sql(f"tmp_16_{start_date}_time".replace('-', '_'), con=engine_pg, if_exists='replace', index=False)
-    df_tmp_16_event.to_sql(f"tmp_16_{start_date}_event".replace('-', '_'), con=engine_pg, if_exists='replace', index=False)
-    logging.info(f"✅ Download for date success: {start_date}")
+    def generate_signal_data(signal_row, time_unix):
+        signal_indx = signal_row['signal_indx']
+        kks_id_signal = signal_row['kks_id_signal']
+        dimension = signal_row['dimension']
+
+        for timestamp in time_unix:
+            yield {
+                'time': timestamp,
+                'Mcs': 476000,
+                'num_sign': signal_indx,
+                'data': gen_value(dimension),
+                'bzone': 0,
+                'isevnt': 1,
+                'bstate': 1,
+                'bsrc': 0,
+                'kks_id_signal': kks_id_signal
+            }
+
+    df_signals = pd.read_sql(sql=sql_query, con=engine, params={"pattern": pattern, "sub_sys_value": sub_sys_value})
+    logging.info(f"Найдено {len(df_signals)} сигналов 10 подсистемы")
+
+    seconds = pd.date_range(start=f"{start_date} 00:00:00", end=f"{start_date} 23:59:59", freq='s')
+    time_unix = (seconds.astype(int) // 10 ** 9).values
+
+    batch_size = 3600
+    first_write = True
+
+
+    csv_buffer = io.StringIO()
+    csv_writer = csv.writer(csv_buffer)
+    logging.info(f"Генерация CSV файла для {len(df_signals)} сигналов × {len(time_unix)} меток времени")
+
+    total_rows = 0
+    for _, signal in df_signals.iterrows():
+        for timestamp in time_unix:
+            csv_writer.writerow([
+                timestamp,  # time
+                476000,  # Mcs
+                signal['signal_indx'],  # num_sign
+                gen_value(signal['dimension']),  # data
+                0,  # bzone
+                1,  # isevnt
+                1,  # bstate
+                0,  # bsrc
+                signal['kks_id_signal']  # kks_id_signal
+            ])
+            total_rows += 1
+
+            if total_rows % 1000000 == 0:
+                logging.info(f"Generated {total_rows:,} rows")
+
+    table_name = f"tmp_10_{start_date.replace('-', '_')}"
+
+    conn = psycopg2.connect(host="postgres_db", database=DB_NAME, user="postgres", password=PG_PASSWORD)
+
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(f"""
+                    CREATE TABLE IF NOT EXISTS {table_name}_event (
+                        time int,
+                        Mcs int,
+                        num_sign int, 
+                        data real,
+                        bzone smallint,
+                        isevnt smallint,
+                        bstate smallint,
+                        bsrc smallint,
+                        kks_id_signal CHAR(25)
+                    );
+                """)
+
+            csv_buffer.seek(0)
+            cursor.copy_expert(f"""
+                    COPY {table_name}_event (time, Mcs, num_sign, data, bzone, isevnt, bstate, bsrc, kks_id_signal)
+                    FROM STDIN WITH CSV
+                """, csv_buffer)
+
+            logging.info(f"Копирование завершено: {total_rows:,} строк")
+
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS {table_name}_time AS 
+                SELECT DISTINCT time 
+                FROM {table_name}_event
+                WHERE time % 5 = 0;
+            """)
+
+            cursor.execute(f"""
+                CREATE TABLE IF NOT EXISTS {table_name}_state AS 
+                SELECT time AS time_page, time, Mcs, num_sign, data, bzone, isevnt, bstate, bsrc, kks_id_signal
+                FROM {table_name}_event
+                WHERE time % 5 = 0;
+            """)
+
+            conn.commit()
+            logging.info(f"Все 3 таблицы 10 подсистемы созданы")
+
+
+    finally:
+        conn.close()
+
+
+    logging.info(f"Download for date success: {start_date}")
 
 with DAG(
     dag_id=DAG_ID,
@@ -98,6 +206,7 @@ with DAG(
     transfer_data_10_from_ms_to_pg = PythonOperator(
         task_id='transfer_data_10_from_ms_to_pg',
         python_callable=transfer_data_10_from_ms_to_pg,
+        execution_timeout=timedelta(minutes=30)
     )
 
     end = EmptyOperator(
