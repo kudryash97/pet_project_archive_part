@@ -154,9 +154,8 @@ def transfer_data_10_from_ms_to_pg(**context):
                 FROM {table_name}_event
                 WHERE time % 5 = 0;
             """)
-
             cursor.execute(f"""
-                CREATE TABLE IF NOT EXISTS f"tmp_80_{start_date.replace('-', '_')}"_time AS
+                CREATE TABLE IF NOT EXISTS tmp_80_{start_date.replace('-', '_')}_time AS
                 SELECT time_page
                 FROM {table_name}_time;
 """)
