@@ -20,3 +20,8 @@ which java
 sed -i 's|# export JAVA_HOME=/usr/java/default|export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64|' /data/pxf/conf/pxf-env.sh
 7. Дальше запускаем pxf
 pxf cluster start
+8. для создания профиля в pxf нужно создать свою директорию в /data/pxf/servers/
+назвать можно как угодно, потом это название будет использоваться при создании external table в LOCATION
+в зависимости от того, к какому типа источнику будет подключение (S3, Hadoop, oltp бд) будет создаваться
+ свой xml файл. Для обычной БД это jdbc-site.xml файл
+ После редактирования файла профиль дял PXF готов!
