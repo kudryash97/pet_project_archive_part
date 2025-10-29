@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <property>
+        <name>jdbc.driver</name>
+        <value>org.postgresql.Driver</value>
+    </property>
+    
+    <property>
+        <name>jdbc.url</name>
+        <value>jdbc:postgresql://postgres_db:5432/your_db_name</value>
+    </property>
+    
+    <property>
+        <name>jdbc.user</name>
+        <value>postgres</value>
+    </property>
+    
+    <property>
+        <name>jdbc.password</name>
+        <value>postgres</value>
+    </property>
+    
+    <property>
+        <name>jdbc.batch.size</name>
+        <value>1000</value>
+    </property>
+</configuration>
