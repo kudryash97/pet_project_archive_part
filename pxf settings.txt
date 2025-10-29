@@ -1,0 +1,22 @@
+1. Залезаем внутрь контейнера с gp
+docker exec -it greenplum-db bash
+2. Настраиваем переменные PXF
+export PXF_HOME=/usr/local/pxf
+export PXF_BASE=/data/pxf
+export PATH=$PXF_HOME/bin:$PATH
+3. Создаем новые директории
+mkdir -p /data/pxf/{conf,lib,logs,run,servers}
+4. Копируем файлы
+cp /usr/local/pxf/conf/* /data/pxf/conf/
+cp -r /usr/local/pxf/lib/* /data/pxf/lib/
+5. Устанавливаем права доступа
+chown -R gpadmin:gpadmin /data/pxf/
+chmod +x /data/pxf/conf/pxf-env.sh
+chmod 644 /data/pxf/conf/*.properties
+6. Проверяем путь к Java, если в конце пути там написано default, меняем его
+echo $JAVA_HOME
+which java
+Замена пути
+sed -i 's|# export JAVA_HOME=/usr/java/default|export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64|' /data/pxf/conf/pxf-env.sh
+7. Дальше запускаем pxf
+pxf cluster start
