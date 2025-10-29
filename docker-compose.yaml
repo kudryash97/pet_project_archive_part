@@ -102,15 +102,15 @@ services:
       - sqlserverdata:/var/opt/mssql
 
   greenplum:
-    image: sergeyosechkin/greenplum
+    image: woblerr/greenplum:6.27.1
     container_name: greenplum-db
     ports:
       - "15432:5432"
-      - "28080:28080"
+      #- "28080:28080"
     environment:
-      - POSTGRES_DB=postgres
-      - POSTGRES_USER=gpadmin
-      - POSTGRES_PASSWORD=gpadmin
+      - GREENPLUM_USER=gpadmin
+      - GREENPLUM_PASSWORD=gpadmin
+      - GREENPLUM_PXF_ENABLE=true
     volumes:
       - greenplum-data:/data
       - greenplum-logs:/home/gpadmin/gpAdminLogs
