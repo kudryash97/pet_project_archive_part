@@ -141,6 +141,20 @@ def transfer_data_80_from_ms_to_pg(**context):
                     FROM STDIN WITH CSV
                 """, csv_buffer)
 
+            cursor.execute(f"""
+                                CREATE TABLE IF NOT EXISTS {table_name}_event (
+                                    time int,
+                                    Mcs int,
+                                    num_sign int, 
+                                    data real,
+                                    bzone smallint,
+                                    isevnt smallint,
+                                    bstate smallint,
+                                    bsrc smallint,
+                                    kks_id_signal CHAR(25)
+                                );
+                            """)
+
             logging.info(f"Копирование завершено: {total_rows:,} строк")
 
             conn.commit()
