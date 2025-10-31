@@ -9,6 +9,7 @@ from airflow.operators.empty import EmptyOperator
 from airflow.operators.python import PythonOperator
 from datetime import timedelta
 import psycopg2
+from psycopg2 import sql
 import csv
 import io
 
@@ -119,8 +120,8 @@ def transfer_data_10_from_ms_to_pg(**context):
 
     try:
         with conn.cursor() as cursor:
-            cursor.execute(f"""
-                    CREATE TABLE IF NOT EXISTS {table_name}_event (
+            cursor.execute(sql.SQL("""
+                    CREATE TABLE IF NOT EXISTS {} (
                         time int,
                         Mcs int,
                         num_sign int, 
@@ -131,38 +132,55 @@ def transfer_data_10_from_ms_to_pg(**context):
                         bsrc smallint,
                         kks_id_signal CHAR(25)
                     );
-                """)
+                    """).format(sql.Identifier(f"{table_name}_event")
+                                )
+                           )
 
             csv_buffer.seek(0)
-            cursor.copy_expert(f"""
-                    COPY {table_name}_event (time, Mcs, num_sign, data, bzone, isevnt, bstate, bsrc, kks_id_signal)
+            cursor.copy_expert(
+                sql.SQL("""
+                    COPY {} (time, Mcs, num_sign, data, bzone, isevnt, bstate, bsrc, kks_id_signal)
                     FROM STDIN WITH CSV
-                """, csv_buffer)
+                """).format(
+                    sql.Identifier(f"{table_name}_event")
+                ),
+                csv_buffer
+            )
 
             logging.info(f"Копирование завершено: {total_rows:,} строк")
 
-            cursor.execute(f"""
-                CREATE TABLE IF NOT EXISTS {table_name}_time AS 
+            cursor.execute(sql.SQL("""
+                CREATE TABLE IF NOT EXISTS {time_table} AS 
                 SELECT DISTINCT time AS time_page
-                FROM {table_name}_event
+                FROM {event_table}
                 WHERE time % 5 = 0;
-            """)
+            """).format(time_table=sql.Identifier(f"{table_name}_time"),
+                        event_table=sql.Identifier(f"{table_name}_event")
+                )
+            )
 
-            cursor.execute(f"""
-                CREATE TABLE IF NOT EXISTS {table_name}_state AS 
+            cursor.execute(sql.SQL("""
+                CREATE TABLE IF NOT EXISTS {state_table} AS 
                 SELECT time AS time_page, time, Mcs, num_sign, data, bzone, isevnt, bstate, bsrc, kks_id_signal
-                FROM {table_name}_event
+                FROM {event_table}
                 WHERE time % 5 = 0;
-            """)
-            cursor.execute(f"""
-                CREATE TABLE IF NOT EXISTS tmp_80_{start_date.replace('-', '_')}_time AS
-                SELECT time_page
-                FROM {table_name}_time;
-""")
+            """).format(
+                state_table=sql.Identifier(f"{table_name}_state"),
+                event_table=sql.Identifier(f"{table_name}_event")
+                )
+            )
 
+            cursor.execute(sql.SQL("""
+                CREATE TABLE IF NOT EXISTS {time_80_table} AS
+                SELECT time_page
+                FROM {time_table}
+                """).format(
+                time_80_table=sql.Identifier(f"tmp_80_{start_date.replace('-', '_')}_time"),
+                time_table=sql.Identifier(f"{table_name}_time")
+                )
+            )
             conn.commit()
             logging.info(f"Все 3 таблицы 10 подсистемы созданы")
-
 
     finally:
         conn.close()

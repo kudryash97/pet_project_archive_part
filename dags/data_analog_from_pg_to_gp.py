@@ -6,6 +6,7 @@ from airflow.operators.empty import EmptyOperator
 from airflow.operators.python import PythonOperator
 from airflow.models.baseoperator import chain
 import psycopg2
+from psycopg2 import sql
 from datetime import timedelta
 from airflow.sensors.external_task import ExternalTaskSensor
 
@@ -51,20 +52,25 @@ def transfer_analog_data_from_pg_to_gp(sub_sys, **context):
 
     try:
         with conn_pg.cursor() as cursor:
-            cursor.execute(f"""
-                CREATE TABLE IF NOT EXISTS public.data_{sub_sys}_{table_name} AS
-                SELECT * FROM tmp_{sub_sys}_{table_name}_event
+            cursor.execute(sql.SQL("""
+                CREATE TABLE IF NOT EXISTS {data_table} AS
+                SELECT * FROM {event_table}
                 UNION
                 SELECT "time", mcs, num_sign, "data", bzone, isevnt, bstate, bsrc, kks_id_signal
-                FROM public.tmp_{sub_sys}_{table_name}_state;
-                """)
+                FROM {state_table};
+                """).format(
+                data_table=sql.Identifier(f"public.data_{sub_sys}_{table_name}"),
+                event_table=sql.Identifier(f"tmp_{sub_sys}_{table_name}_event"),
+                state_table=sql.Identifier(f"public.tmp_{sub_sys}_{table_name}_state")
+            )
+                           )
         conn_pg.commit()
         logging.info(f"Таблица public.data_{sub_sys}_{table_name} для сбора данных {sub_sys} подсистемы создана")
 
         with conn_gp.cursor() as cursor:
-            cursor.execute(f"""
-            DROP EXTERNAL TABLE IF EXISTS ext_data_{sub_sys};
-             CREATE READABLE EXTERNAL TABLE ext_data_{sub_sys} (
+            cursor.execute(sql.SQL("""
+            DROP EXTERNAL TABLE IF EXISTS {ext_data_table};
+             CREATE READABLE EXTERNAL TABLE {ext_data_table} (
                 time int4,
                 mcs int4,
                 num_sign int4,
@@ -75,18 +81,24 @@ def transfer_analog_data_from_pg_to_gp(sub_sys, **context):
                 bsrc int2,
                 kks_id_signal bpchar(25)
             )
-            LOCATION('pxf://public.data_{sub_sys}_{table_name}?PROFILE=jdbc&SERVER=electro_abramovo_server')
+            LOCATION('pxf://{pg_table}?PROFILE=jdbc&SERVER=electro_abramovo_server')
             FORMAT 'CUSTOM' (FORMATTER='pxfwritable_import');
             
-            INSERT INTO public.data_{sub_sys}
-            SELECT * FROM ext_data_{sub_sys};   
-""")
+            INSERT INTO {data_table}
+            SELECT * FROM {ext_data_table};   
+                """).format(ext_data_table=sql.Identifier(f"ext_data_{sub_sys}"),
+                        data_table=sql.Identifier(f"public.data_{sub_sys}"),
+                        pg_table=sql.Identifier(f"public.data_{sub_sys}_{table_name}")
+                            )
+                           )
         conn_gp.commit()
         logging.info(f"Перекачка данных из public.data_{sub_sys}_{table_name} в хранилище завершена")
 
         with conn_pg.cursor() as cursor:
-            cursor.execute(f"""DROP TABLE IF EXISTS public.data_{sub_sys}_{table_name};""")
-        conn_pg.commit()
+            cursor.execute(sql.SQL("DROP TABLE IF EXISTS {};").format(
+                sql.Identifier(f"public.data_{sub_sys}_{table_name}")
+            )
+            )
         logging.info(f"Таблица public.data_{sub_sys}_{table_name} дропнута")
     finally:
         conn_pg.close()

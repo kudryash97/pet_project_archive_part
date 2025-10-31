@@ -8,6 +8,7 @@ from sqlalchemy import create_engine
 from airflow.operators.empty import EmptyOperator
 from airflow.operators.python import PythonOperator
 import psycopg2
+from psycopg2 import sql
 
 #конфиг DAG
 OWNER = "kudryash"
@@ -86,8 +87,8 @@ def column_type_update(**context):
     conn = psycopg2.connect(host="postgres_db", database=DB_NAME, user="postgres", password=PG_PASSWORD)
     try:
         with conn.cursor() as cursor:
-            cursor.execute(f"""
-                    ALTER TABLE tmp_16_{start_date.replace('-', '_')}_event
+            cursor.execute(sql.SQL("""
+                    ALTER TABLE {}
                         ALTER COLUMN time TYPE int4,
                         ALTER COLUMN "Mcs" TYPE int4,
                         ALTER COLUMN num_sign TYPE int4,
@@ -96,10 +97,12 @@ def column_type_update(**context):
                         ALTER COLUMN bstate TYPE int2,
                         ALTER COLUMN bsrc TYPE int2,
                         ALTER COLUMN kks_id_signal TYPE CHAR(25);
-                """)
+                """).format(sql.Identifier(f"tmp_16_{start_date.replace('-', '_')}_event")
+                            )
+                           )
 
-            cursor.execute(f"""
-                    ALTER TABLE tmp_16_{start_date.replace('-', '_')}_state
+            cursor.execute(sql.SQL("""
+                    ALTER TABLE {}
                         ALTER COLUMN time_page TYPE int4,
                         ALTER COLUMN time TYPE int4,
                         ALTER COLUMN "Mcs" TYPE int4,
@@ -109,12 +112,16 @@ def column_type_update(**context):
                         ALTER COLUMN bstate TYPE int2,
                         ALTER COLUMN bsrc TYPE int2,
                         ALTER COLUMN kks_id_signal TYPE CHAR(25);
-                """)
+                """).format(sql.Identifier(f"tmp_16_{start_date.replace('-', '_')}_state")
+                            )
+                           )
 
-            cursor.execute(f"""
-                    ALTER TABLE tmp_16_{start_date.replace('-', '_')}_time
+            cursor.execute(sql.SQL("""
+                    ALTER TABLE {}
                         ALTER COLUMN time_page TYPE int4;
-                """)
+                """).format(sql.Identifier(f"tmp_16_{start_date.replace('-', '_')}_time")
+                            )
+                           )
 
             conn.commit()
             logging.info(f"У всех 3х таблиц типы данных изменены")

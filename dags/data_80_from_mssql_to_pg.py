@@ -9,6 +9,7 @@ from airflow.operators.empty import EmptyOperator
 from airflow.operators.python import PythonOperator
 from datetime import timedelta
 import psycopg2
+from psycopg2 import sql
 import csv
 import io
 
@@ -120,29 +121,8 @@ def transfer_data_80_from_ms_to_pg(**context):
 
     try:
         with conn.cursor() as cursor:
-            cursor.execute(f"""
-                    CREATE TABLE IF NOT EXISTS {table_name}_state (
-                        time_page int,
-                        time int,
-                        Mcs int,
-                        num_sign int, 
-                        data real,
-                        bzone smallint,
-                        isevnt smallint,
-                        bstate smallint,
-                        bsrc smallint,
-                        kks_id_signal CHAR(25)
-                    );
-                """)
-
-            csv_buffer.seek(0)
-            cursor.copy_expert(f"""
-                    COPY {table_name}_state (time_page, time, Mcs, num_sign, data, bzone, isevnt, bstate, bsrc, kks_id_signal)
-                    FROM STDIN WITH CSV
-                """, csv_buffer)
-
-            cursor.execute(f"""
-                                CREATE TABLE IF NOT EXISTS {table_name}_event (
+            cursor.execute(sql.SQL("""
+                                CREATE TABLE IF NOT EXISTS {} (
                                     time int,
                                     Mcs int,
                                     num_sign int, 
@@ -153,7 +133,36 @@ def transfer_data_80_from_ms_to_pg(**context):
                                     bsrc smallint,
                                     kks_id_signal CHAR(25)
                                 );
-                            """)
+                                """).format(sql.Identifier(f"{table_name}_event")
+                                            )
+                           )
+
+            csv_buffer.seek(0)
+            cursor.copy_expert(
+                sql.SQL("""
+                                COPY {} (time, Mcs, num_sign, data, bzone, isevnt, bstate, bsrc, kks_id_signal)
+                                FROM STDIN WITH CSV
+                            """).format(
+                    sql.Identifier(f"{table_name}_event")
+                ),
+                csv_buffer
+            )
+
+            cursor.execute(sql.SQL("""
+                                CREATE TABLE IF NOT EXISTS {} (
+                                    time int,
+                                    Mcs int,
+                                    num_sign int, 
+                                    data real,
+                                    bzone smallint,
+                                    isevnt smallint,
+                                    bstate smallint,
+                                    bsrc smallint,
+                                    kks_id_signal CHAR(25)
+                                );
+                            """).format(sql.Identifier(f"{table_name}_event")
+                                        )
+                           )
 
             logging.info(f"Копирование завершено: {total_rows:,} строк")
 
