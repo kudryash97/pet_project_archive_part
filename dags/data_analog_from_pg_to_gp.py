@@ -7,6 +7,7 @@ from airflow.operators.python import PythonOperator
 from airflow.models.baseoperator import chain
 import psycopg2
 from datetime import timedelta
+from airflow.sensors.external_task import ExternalTaskSensor
 
 
 #конфиг DAG
@@ -93,9 +94,9 @@ def transfer_analog_data_from_pg_to_gp(sub_sys, **context):
 
 with DAG(
     dag_id=DAG_ID,
-    schedule_interval='0 5 * * *',
+    schedule_interval="0 5 * * *",
     default_args=args,
-    tags=['pg', 'gp'],
+    tags=["pg", "gp"],
     description=SHORT_DESCRIPTION,
     concurrency=1,
     max_active_tasks=1,
@@ -104,29 +105,39 @@ with DAG(
     dag.doc_md = LONG_DESCRIPTION
 
     start = EmptyOperator(
-        task_id='start',
+        task_id="start",
+    )
+
+    sensor_on_transfer_data_10_ms_pg = ExternalTaskSensor(
+        task_id="sensor_on_transfer_data_10_ms_pg",
+        external_dag_id="data_10_from_mssql_to_pg",
+        allowed_states=["success"],
+        mode="reschedule",
+        timeout=36000,  # длительность работы сенсора
+        poke_interval=60,  # частота проверки
     )
 
     transfer_data_10_from_pg_to_gp = PythonOperator(
-        task_id='transfer_data_10_from_pg_to_gp',
+        task_id="transfer_data_10_from_pg_to_gp",
         python_callable=transfer_analog_data_from_pg_to_gp,
-        op_kwargs={'sub_sys': 10},
+        op_kwargs={"sub_sys": 10},
         execution_timeout=timedelta(minutes=30)
     )
 
     transfer_data_80_from_pg_to_gp = PythonOperator(
-        task_id='transfer_data_80_from_pg_to_gp',
+        task_id="transfer_data_80_from_pg_to_gp",
         python_callable=transfer_analog_data_from_pg_to_gp,
-        op_kwargs={'sub_sys': 80},
+        op_kwargs={"sub_sys": 80},
         execution_timeout=timedelta(minutes=30)
     )
 
     end = EmptyOperator(
-        task_id='end'
+        task_id="end"
     )
 
     chain(
         start,
+        sensor_on_transfer_data_10_ms_pg,
         transfer_data_10_from_pg_to_gp,
         transfer_data_80_from_pg_to_gp,
         end

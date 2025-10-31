@@ -5,6 +5,7 @@ from airflow.models import Variable
 from airflow.operators.empty import EmptyOperator
 from airflow.operators.python import PythonOperator
 from airflow.models.baseoperator import chain
+from airflow.sensors.external_task import ExternalTaskSensor
 import psycopg2
 from datetime import timedelta
 
@@ -107,6 +108,15 @@ with DAG(
         task_id='start',
     )
 
+    sensor_on_transfer_data_16_ms_pg = ExternalTaskSensor(
+        task_id="sensor_on_transfer_data_16_ms_pg",
+        external_dag_id="data_16_from_mssql_to_pg",
+        allowed_states=["success"],
+        mode="reschedule",
+        timeout=36000,  # длительность работы сенсора
+        poke_interval=60,  # частота проверки
+    )
+
     transfer_data_16_from_pg_to_gp = PythonOperator(
         task_id='transfer_data_16_from_pg_to_gp',
         python_callable=transfer_discrete_data_from_pg_to_gp,
@@ -127,6 +137,7 @@ with DAG(
 
     chain(
         start,
+        sensor_on_transfer_data_16_ms_pg,
         transfer_data_16_from_pg_to_gp,
         transfer_data_85_from_pg_to_gp,
         end
