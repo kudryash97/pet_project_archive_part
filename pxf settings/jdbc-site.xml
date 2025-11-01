@@ -7,7 +7,7 @@
     
     <property>
         <name>jdbc.url</name>
-        <value>jdbc:postgresql://postgres_db:5432/your_db_name</value>
+        <value>jdbc:postgresql://postgres_db:5432/electro_abramovo</value>
     </property>
     
     <property>
