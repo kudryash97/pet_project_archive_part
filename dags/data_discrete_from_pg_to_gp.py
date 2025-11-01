@@ -59,9 +59,9 @@ def transfer_discrete_data_from_pg_to_gp(sub_sys, **context):
                 SELECT "time", "Mcs", num_sign, "data", "Pr", bstate, bsrc, kks_id_signal
                 FROM {state_table};
                 """).format(
-                data_table=sql.Identifier(f"public.data_{sub_sys}_{table_name}"),
+                data_table=sql.Identifier(f"data_{sub_sys}_{table_name}"),
                 event_table=sql.Identifier(f"tmp_{sub_sys}_{table_name}_event"),
-                state_table=sql.Identifier(f"public.tmp_{sub_sys}_{table_name}_state")
+                state_table=sql.Identifier(f"tmp_{sub_sys}_{table_name}_state")
             )
                            )
         conn_pg.commit()
@@ -86,19 +86,19 @@ def transfer_discrete_data_from_pg_to_gp(sub_sys, **context):
             INSERT INTO {data_table}
             SELECT * FROM {ext_data_table};   
             """).format(ext_data_table=sql.Identifier(f"ext_data_{sub_sys}"),
-                        data_table=sql.Identifier(f"public.data_{sub_sys}"),
-                        pg_table=sql.Identifier(f"public.data_{sub_sys}_{table_name}")
+                        data_table=sql.Identifier(f"data_{sub_sys}"),
+                        pg_table=sql.Identifier(f"data_{sub_sys}_{table_name}")
                         )
                            )
         conn_gp.commit()
-        logging.info(f"Перекачка данных из public.data_{sub_sys}_{table_name} в хранилище завершена")
+        logging.info(f"Перекачка данных из data_{sub_sys}_{table_name} в хранилище завершена")
 
         with conn_pg.cursor() as cursor:
             cursor.execute(sql.SQL("DROP TABLE IF EXISTS {};").format(
-                sql.Identifier(f"public.data_{sub_sys}_{table_name}")
+                sql.Identifier(f"data_{sub_sys}_{table_name}")
             ))
         conn_pg.commit()
-        logging.info(f"Таблица public.data_{sub_sys}_{table_name} дропнута")
+        logging.info(f"Таблица data_{sub_sys}_{table_name} дропнута")
     finally:
         conn_pg.close()
         conn_gp.close()

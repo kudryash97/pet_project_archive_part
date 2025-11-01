@@ -123,6 +123,7 @@ def transfer_data_80_from_ms_to_pg(**context):
         with conn.cursor() as cursor:
             cursor.execute(sql.SQL("""
                                 CREATE TABLE IF NOT EXISTS {} (
+                                    time_page int,
                                     time int,
                                     Mcs int,
                                     num_sign int, 
@@ -133,17 +134,17 @@ def transfer_data_80_from_ms_to_pg(**context):
                                     bsrc smallint,
                                     kks_id_signal CHAR(25)
                                 );
-                                """).format(sql.Identifier(f"{table_name}_event")
+                                """).format(sql.Identifier(f"{table_name}_state")
                                             )
                            )
 
             csv_buffer.seek(0)
             cursor.copy_expert(
                 sql.SQL("""
-                                COPY {} (time, Mcs, num_sign, data, bzone, isevnt, bstate, bsrc, kks_id_signal)
-                                FROM STDIN WITH CSV
+                        COPY {} (time_page, time, Mcs, num_sign, data, bzone, isevnt, bstate, bsrc, kks_id_signal)
+                        FROM STDIN WITH CSV
                             """).format(
-                    sql.Identifier(f"{table_name}_event")
+                    sql.Identifier(f"{table_name}_state")
                 ),
                 csv_buffer
             )
