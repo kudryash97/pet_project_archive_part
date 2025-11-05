@@ -64,7 +64,6 @@ def transfer_analog_data_from_pg_to_gp(sub_sys, **context):
                 state_table=sql.Identifier(f"tmp_{sub_sys}_{table_name}_state")
             )
                            )
-        conn_pg.commit()
         logging.info(f"Таблица data_{sub_sys}_{table_name} для сбора данных {sub_sys} подсистемы создана")
 
         with conn_gp.cursor() as cursor:
@@ -85,9 +84,19 @@ def transfer_analog_data_from_pg_to_gp(sub_sys, **context):
             FORMAT 'CUSTOM' (FORMATTER='pxfwritable_import');
             
             INSERT INTO {data_table}
-            SELECT * FROM {ext_data_table};   
+            SELECT "time", 
+            to_timestamp("time") AS time_normal, 
+            mcs, 
+            num_sign, 
+            "data", 
+            bzone, 
+            isevnt, 
+            bstate, 
+            bsrc, 
+            kks_id_signal 
+            FROM {ext_data_table};   
                 """).format(ext_data_table=sql.Identifier(f"ext_data_{sub_sys}"),
-                        data_table=sql.Identifier(f"data_{sub_sys}"),
+                        data_table=sql.Identifier(f"data_{sub_sys}_{start_date[:4]}"),
                         pg_table=sql.Identifier(f"data_{sub_sys}_{table_name}")
                             )
                            )
@@ -97,8 +106,8 @@ def transfer_analog_data_from_pg_to_gp(sub_sys, **context):
         with conn_pg.cursor() as cursor:
             cursor.execute(sql.SQL("DROP TABLE IF EXISTS {};").format(
                 sql.Identifier(f"data_{sub_sys}_{table_name}")
-            )
-            )
+            ))
+        conn_pg.commit()
         logging.info(f"Таблица data_{sub_sys}_{table_name} дропнута")
     finally:
         conn_pg.close()

@@ -84,9 +84,19 @@ def transfer_discrete_data_from_pg_to_gp(sub_sys, **context):
             FORMAT 'CUSTOM' (FORMATTER='pxfwritable_import');
 
             INSERT INTO {data_table}
-            SELECT * FROM {ext_data_table};   
+            SELECT 
+                "time",
+                to_timestamp("time") AS time_normal,
+                "Mcs",
+                num_sign,
+                "data",
+                "Pr",
+                bstate,
+                bsrc,
+                kks_id_signal
+            FROM {ext_data_table};   
             """).format(ext_data_table=sql.Identifier(f"ext_data_{sub_sys}"),
-                        data_table=sql.Identifier(f"data_{sub_sys}"),
+                        data_table=sql.Identifier(f"data_{sub_sys}_{start_date[:4]}"),
                         pg_table=sql.Identifier(f"data_{sub_sys}_{table_name}")
                         )
                            )
