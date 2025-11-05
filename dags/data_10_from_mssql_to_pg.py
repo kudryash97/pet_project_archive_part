@@ -87,7 +87,7 @@ def transfer_data_10_from_ms_to_pg(**context):
     df_signals = pd.read_sql(sql=sql_query, con=engine, params={"pattern": pattern, "sub_sys_value": sub_sys_value})
     logging.info(f"Найдено {len(df_signals)} сигналов 10 подсистемы")
 
-    seconds = pd.date_range(start=f"{start_date} 00:00:00", end=f"{start_date} 23:59:59", freq='s')
+    seconds = pd.date_range(start=f"{start_date} 00:00:00", end=f"{start_date} 23:59:59", freq='5s')
     time_unix = (seconds.astype(int) // 10 ** 9).values
 
 

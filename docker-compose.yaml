@@ -112,8 +112,8 @@ services:
       - GREENPLUM_PASSWORD=gpadmin
       - GREENPLUM_PXF_ENABLE=true
     volumes:
-      - greenplum-data:/data
-      - greenplum-logs:/home/gpadmin/gpAdminLogs
+      - greenplum_data:/data
+      #- greenplum-logs:/home/gpadmin/gpAdminLogs
     restart: unless-stopped
     tty: true
     stdin_open: true
@@ -130,6 +130,8 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: postgres
+    volumes:
+      - postgres_db_data:/var/lib/postgresql/data
     restart: always
     ports:
       - "5433:5432"
@@ -334,7 +336,8 @@ services:
         condition: service_completed_successfully
 
 volumes:
-  greenplum-data:
-  greenplum-logs:
+  greenplum_data:
+  #greenplum-logs:
   sqlserverdata:
   postgres-db-volume:
+  postgres_db_data:
