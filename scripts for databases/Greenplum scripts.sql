@@ -3,8 +3,9 @@ CREATE DATABASE electro_abramovo;
 /*Все последующие запросы в БД electro_abramovo*/
 CREATE EXTENSION IF NOT EXISTS pxf;
 
-CREATE TABLE public.data_16 (
+CREATE TABLE public.data_16_2025 (
 	"time" int4,
+	time_normal timestamp,
 	"Mcs" int4,
 	num_sign int4,
 	"data" int2,
@@ -19,11 +20,16 @@ compresstype=ZSTD,
 compresslevel=5,
 orientation=column
 )
-DISTRIBUTED BY ("time");
+DISTRIBUTED BY ("time")
+PARTITION BY RANGE (time_normal)
+	(START ('2025-10-01 00:00:00')
+	END ('2025-12-31 23:59:59')
+	EVERY (INTERVAL '1 month'));
 
 
-CREATE TABLE public.data_85 (
+CREATE TABLE public.data_85_2025 (
 	"time" int4,
+	time_normal timestamp,
 	"Mcs" int4,
 	num_sign int4,
 	"data" int2,
@@ -38,11 +44,16 @@ compresstype=ZSTD,
 compresslevel=5,
 orientation=column
 )
-DISTRIBUTED BY ("time");
+DISTRIBUTED BY ("time")
+PARTITION BY RANGE (time_normal)
+	(START ('2025-10-01 00:00:00')
+	END ('2025-12-31 23:59:59')
+	EVERY (INTERVAL '1 month'));
 
 
-CREATE TABLE public.data_10 (
+CREATE TABLE public.data_10_2025 (
 	"time" int4,
+	time_normal timestamp,
 	mcs int4,
 	num_sign int4,
 	"data" float4,
@@ -58,10 +69,15 @@ compresstype=ZSTD,
 compresslevel=5,
 orientation=column
 )
-DISTRIBUTED BY ("time");
+DISTRIBUTED BY ("time")
+PARTITION BY RANGE (time_normal)
+	(START ('2025-10-01 00:00:00')
+	END ('2025-12-31 23:59:59')
+	EVERY (INTERVAL '1 month'));
 
-CREATE TABLE public.data_80 (
+CREATE TABLE public.data_80_2025 (
 	"time" int4,
+	time_normal timestamp,
 	mcs int4,
 	num_sign int4,
 	"data" float4,
@@ -77,4 +93,8 @@ compresstype=ZSTD,
 compresslevel=5,
 orientation=column
 )
-DISTRIBUTED BY ("time");
+DISTRIBUTED BY ("time")
+PARTITION BY RANGE (time_normal)
+	(START ('2025-10-01 00:00:00')
+	END ('2025-12-31 23:59:59')
+	EVERY (INTERVAL '1 month'));
