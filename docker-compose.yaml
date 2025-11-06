@@ -106,23 +106,29 @@ services:
     container_name: greenplum-db
     ports:
       - "15432:5432"
-      #- "28080:28080"
     environment:
       - GREENPLUM_USER=gpadmin
       - GREENPLUM_PASSWORD=gpadmin
       - GREENPLUM_PXF_ENABLE=true
+      - PGUSER=gpadmin # это для pxf
+      - PGPASSWORD=gpadmin # это для pxf
     volumes:
-      - greenplum_data:/data
-      #- greenplum-logs:/home/gpadmin/gpAdminLogs
+      - greenplum-data:/data
+      - greenplum-logs:/home/gpadmin/gpAdminLogs
     restart: unless-stopped
     tty: true
     stdin_open: true
+    shm_size: 2g
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U gpadmin -d postgres -h localhost" ]
+      test: ["CMD-SHELL", "su - gpadmin -c 'gpstate -s' || exit 1"]
       interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+      timeout: 15s
+      retries: 5
+      start_period: 180s
 
   postgres_db:
     image: postgres:13
@@ -336,8 +342,8 @@ services:
         condition: service_completed_successfully
 
 volumes:
-  greenplum_data:
-  #greenplum-logs:
+  greenplum-data:
+  greenplum-logs:
   sqlserverdata:
   postgres-db-volume:
   postgres_db_data:
